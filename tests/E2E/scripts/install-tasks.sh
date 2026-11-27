@@ -67,7 +67,7 @@ case "${1:-help}" in
         : "${ANDROID_HOME:?Set ANDROID_HOME to an Android SDK with platform 37 and accepted licenses}"
         export GRADLE_USER_HOME="$state/gradle-user-home"
         cd -- "$repo"
-        bash ./gradlew :app:assembleGoogleplayDebug --no-daemon --console=plain
+        bash ./gradlew :app:assembleGoogleplayDebug --no-daemon --console=plain --stacktrace --info
         source_apk="$repo/app/build/outputs/apk/googleplay/debug/app-googleplay-debug.apk"
         [[ -f "$source_apk" ]]
         mkdir -p -- "$state/source-builds"
