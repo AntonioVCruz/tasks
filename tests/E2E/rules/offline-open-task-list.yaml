@@ -1,0 +1,4 @@
+steps: |
+  click "Continue without sync" if exists
+  check that page contains "My Tasks"
+labels: [phase4-offline, native, offline]

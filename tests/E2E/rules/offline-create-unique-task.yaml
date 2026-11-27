@@ -1,0 +1,9 @@
+steps: |
+  // Returns to the list and exposes taskTitle to the calling case.
+  offline-open-task-list
+  click "Create new task"
+  generate from regex "TasksE2E_[a-z]{12}", then enter into "Task name" and save as "taskTitle"
+  click "Save"
+  check that page contains "My Tasks"
+  check that page contains stored value from "taskTitle"
+labels: [phase4-offline, native, offline]

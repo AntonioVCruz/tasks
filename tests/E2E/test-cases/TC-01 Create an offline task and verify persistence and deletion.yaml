@@ -1,0 +1,25 @@
+customSteps: |
+  // Start on either fresh onboarding or the existing offline task list.
+  click "Continue without sync" if exists
+  check that page contains "My Tasks"
+  click "Create new task"
+  generate from regex "TasksE2E_[a-z]{12}", then enter into "Task name" and save as "taskTitle"
+  click "Save"
+  check that page contains stored value from "taskTitle"
+
+  // A process restart must retain the task that was just saved.
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  check that page contains stored value from "taskTitle"
+  click "Delete task"
+  check that page contains "Delete this task?"
+  click "OK"
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "taskTitle"
+
+  // Confirm deletion survives a second restart, and leave no test task behind.
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "taskTitle"
+labels: [phase3-smoke, native, offline]

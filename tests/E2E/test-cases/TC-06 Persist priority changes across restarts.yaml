@@ -1,0 +1,27 @@
+customSteps: |
+  offline-create-unique-task
+  click stored value "taskTitle"
+  scroll down until page contains "Priority"
+  // Android PriorityRow renders four radio buttons in None, Low, Medium, High order.
+  click 4th radio button to the right of "Priority"
+  check that 4th radio button to the right of "Priority" is checked
+  click "Save"
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  scroll down until page contains "Priority"
+  check that 4th radio button to the right of "Priority" is checked
+  click 2nd radio button to the right of "Priority"
+  check that 2nd radio button to the right of "Priority" is checked
+  click "Save"
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  scroll down until page contains "Priority"
+  check that 2nd radio button to the right of "Priority" is checked
+  check that 4th radio button to the right of "Priority" is not checked
+  offline-delete-current-task
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "taskTitle"
+labels: [phase4-offline, native, offline]

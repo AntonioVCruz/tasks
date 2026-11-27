@@ -1,0 +1,20 @@
+customSteps: |
+  offline-create-unique-task
+  click stored value "taskTitle"
+  check that page contains stored value from "taskTitle"
+  click "Delete task"
+  check that page contains "Delete this task?"
+  click "Cancel"
+  check that page contains stored value from "taskTitle"
+  check that page doesn't contain "Delete this task?"
+  click "Save"
+  restart app
+  check that page contains "My Tasks"
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  // The successful control also cleans up the task whose deletion was canceled.
+  offline-delete-current-task
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "taskTitle"
+labels: [phase4-offline, native, offline]

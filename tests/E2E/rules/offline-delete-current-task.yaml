@@ -1,0 +1,7 @@
+steps: |
+  // Precondition: the caller has opened its own uniquely named task editor.
+  click "Delete task"
+  check that page contains "Delete this task?"
+  click "OK"
+  check that page contains "My Tasks"
+labels: [phase4-offline, native, offline]

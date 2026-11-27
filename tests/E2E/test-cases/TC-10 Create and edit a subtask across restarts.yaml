@@ -1,0 +1,32 @@
+customSteps: |
+  offline-create-unique-task
+  click stored value "taskTitle"
+  scroll down until page contains "Add subtask"
+  click "Add subtask"
+  // The new subtask's text field receives focus in SubtaskRow.
+  generate from regex "ChildTask_[a-z]{12}", and save as "subtaskTitle"
+  type stored value "subtaskTitle"
+  check that page contains stored value from "subtaskTitle"
+  click "Save"
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  scroll down until page contains stored value from "subtaskTitle"
+  check that page contains stored value from "subtaskTitle"
+  click stored value "subtaskTitle"
+  generate from regex "EditedChild_[a-z]{12}", then enter into "Task name" and save as "updatedSubtaskTitle"
+  click "Save"
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  scroll down until page contains stored value from "updatedSubtaskTitle"
+  check that page contains stored value from "updatedSubtaskTitle"
+  check that page doesn't contain stored value from "subtaskTitle"
+  // TaskDeleter includes descendants; only this case's parent and child are removed.
+  offline-delete-current-task
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "taskTitle"
+  check that page doesn't contain stored value from "updatedSubtaskTitle"
+  check that page doesn't contain stored value from "subtaskTitle"
+labels: [phase4-offline, native, offline]

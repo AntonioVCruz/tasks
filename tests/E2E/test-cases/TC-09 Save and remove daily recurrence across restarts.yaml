@@ -1,0 +1,28 @@
+customSteps: |
+  offline-create-unique-task
+  click stored value "taskTitle"
+  scroll down until page contains "Does not repeat"
+  click "Does not repeat"
+  click "Every day"
+  check that page contains "Repeats daily"
+  click "Save"
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  scroll down until page contains "Repeats daily"
+  check that page contains "Repeats daily"
+  click "Repeats daily"
+  click "Does not repeat"
+  check that page contains "Does not repeat"
+  click "Save"
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  scroll down until page contains "Does not repeat"
+  check that page contains "Does not repeat"
+  check that page doesn't contain "Repeats daily"
+  offline-delete-current-task
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "taskTitle"
+labels: [phase4-offline, native, offline]

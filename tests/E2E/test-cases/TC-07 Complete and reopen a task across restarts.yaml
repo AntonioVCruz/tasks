@@ -1,0 +1,31 @@
+customSteps: |
+  offline-create-unique-task
+  // This custom image has no accessible caption/checkable role. Normal image
+  // and checkbox references were rejected at runtime; target this control visually.
+  // Verify actual saved completion metadata rather than relying on its appearance.
+  click string with parameters "the completion checkbox immediately to the left of the task titled ${taskTitle}" using AI
+  restart app
+  check that page contains "My Tasks"
+  // Completed tasks are grouped in a collapsed section by default.
+  if page doesn't contain stored value from "taskTitle" then
+    click "Completed"
+  end
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  scroll down until page contains "Completion"
+  check that page contains "Completion"
+  click "Save"
+  if page doesn't contain stored value from "taskTitle" then
+    click "Completed"
+  end
+  click string with parameters "the completion checkbox immediately to the left of the task titled ${taskTitle}" using AI
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  scroll down until page contains "Created"
+  check that page doesn't contain "Completion"
+  offline-delete-current-task
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "taskTitle"
+labels: [phase4-offline, native, offline]
