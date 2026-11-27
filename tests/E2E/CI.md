@@ -1,9 +1,15 @@
 # Optional native Android E2E workflow
 
-`.github/workflows/e2e-tests.yml` is a manual, disabled-by-default proposal. It
-has been checked locally; **hosted execution and authentication with a suite CI
-token remain unverified**. The source APK/upload/cloud-device route was exercised
-in the development loop, but that does not verify the GitHub-hosted build.
+`.github/workflows/e2e-tests.yml` is manual and disabled by default. A real
+[hosted validation on the contributor's fork](https://github.com/AntonioVCruz/tasks/actions/runs/46050713770)
+passed on 2026-11-27: configuration, suite access, source APK build and all ten
+native offline cases succeeded, with CLI exit 0 and matching JUnit showing no
+failures, errors or skips. The tested source/harness commit was
+`481814a12ab496fe3295e7ba91d8af1d5a69d48a`.
+
+This verifies the fork's build/upload/device/report route with its configured
+suite CI credential. It does not establish sustained reliability, fix the
+intermittent restart issue or imply upstream acceptance of the integration.
 
 ## Repository-specific decisions
 
@@ -16,7 +22,7 @@ in the development loop, but that does not verify the GitHub-hosted build.
 | Deployment | Upload the built APK to testRigor for installation on its native Android device. There is no browser server, VM deployment, tunnel or local emulator. The first case steps exercise actual cloud launch/onboarding. |
 | Trust boundary | An access-check job verifies the suite token before building. A job with no testRigor credential builds the APK. A separate E2E job downloads that artifact, checks source/harness hashes and APK digest, then receives the CI token only on the run step. Checkouts do not retain the GitHub token. |
 | Versions | Exact CLI `3.0.0`, the version exercised in development. Node 22 matches the verified major version. Third-party actions use full commit SHAs. JDK 25 and the checked-in Gradle wrapper follow this repository's CI conventions. |
-| Duration | Gate 5 minutes, build 35 minutes, E2E 75 minutes; no job matrix. The accepted development cloud run took about 30 minutes. Hosted build/runtime limits are proposals until exercised. |
+| Duration | Gate and access 5 minutes each, build 35 minutes, E2E 75 minutes; no job matrix. These limits accommodated the successful hosted validation. |
 | Serialization | Stable `testrigor-<suite-id>` concurrency group, `cancel-in-progress: false`. Other workflows using this suite must use the same group. GitHub's default single pending slot may replace an unstarted pending dispatch; it does not cancel the active run. Local runs and other repositories are outside this lock. |
 | Evidence | APK plus provenance retained 3 days; build failure log 3 days; sanitized CLI log, result JSON, provenance and JUnit 7 days. Artifact names include workflow run ID and attempt. No device/container logs are claimed. |
 | Ownership | Before enabling upstream, maintainers must choose a suite owner, credential holder and triage owner. A dedicated CI suite is preferable to sharing a development suite, because CLI submissions can cancel another run. No upstream suite or owner has been selected. |
@@ -40,7 +46,7 @@ The current development export also contains `ignoreMinimizedWindows=false`.
 The workflow does not change suite settings. Creating a dedicated CI suite,
 copying accepted definitions or changing settings requires its own scope.
 
-The initial hosted validation should authorize **one full cloud execution** on
+Initial validation for a newly configured repository should authorize **one full cloud execution** on
 an explicitly named suite, including the freshly built debug APK upload and
 transient branch definitions. It must not overlap a local/manual run. The five
 unused Phase 4 runs do not automatically authorize this separate CI validation.
@@ -48,8 +54,8 @@ unused Phase 4 runs do not automatically authorize this separate CI validation.
 Install the reviewed workflow and `tests/E2E/` files on the fork's default
 branch before dispatching; the gate intentionally skips non-default refs.
 Installing it on the upstream default branch requires maintainer acceptance.
-Publishing commits, writing GitHub secrets/variables, enabling the workflow and
-dispatching hosted validation have not been performed by the local preparation.
+The contributor's fork was published/configured and dispatched with user
+authorization; no upstream workflow, credentials or settings were changed.
 
 ## What each dispatch does
 
@@ -87,8 +93,9 @@ a failed CLI execution into a pass.
 
 The Python runner uses only the standard library. Its status/JUnit fallback is
 based on the inspected CLI 3.0.0 implementation and development report recovery.
-The route's behavior with a suite CI token must still be verified in the first
-approved hosted run. There is no fallback to a personal token.
+The route worked with the configured suite CI token in the hosted fork run
+above. Verify permissions again when changing suites or credentials. There is
+no fallback to a personal token.
 
 ## Triage, rotation and removal
 

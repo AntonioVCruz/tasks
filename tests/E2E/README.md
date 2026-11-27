@@ -1,7 +1,7 @@
 # Android E2E environment
 
 The optional manual GitHub Actions draft and its setup, ownership and validation
-limits are documented in [CI.md](CI.md). Hosted CI remains unverified.
+limits and successful hosted fork validation are documented in [CI.md](CI.md).
 
 Scope: the native Tasks Android application, Google Play flavor. Browser E2E has
 been discarded. Hybrid/WebView coverage has not been established by inspecting
