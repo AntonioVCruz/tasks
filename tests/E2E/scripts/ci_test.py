@@ -105,6 +105,13 @@ class EvidenceTests(unittest.TestCase):
         self.assertNotIn('fake-ci-token', str(error.exception))
         self.assertIn('[REDACTED]', str(error.exception))
 
+    def test_missing_suite_cannot_pass_as_missing_new_branch(self):
+        values = {'TESTRIGOR_API_KEY': '  fake-ci-token  ', 'TESTRIGOR_SUITE_ID': 'Suite123', 'TASKS_E2E_BRANCH': 'ci-42-1'}
+        with patch.dict(os.environ, values), patch.object(ci, 'status', return_value=(404, None)) as status:
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(ci.check_access(), 1)
+        self.assertEqual(status.call_args_list[0].args, ('Suite123', None, 'fake-ci-token'))
+
 
 class RunnerTests(unittest.TestCase):
     def simulate(self, cli_exit=0, terminal_code=200, report_run='Run123', preflight_code=200):

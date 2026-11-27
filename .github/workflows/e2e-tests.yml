@@ -75,16 +75,16 @@ jobs:
           TESTRIGOR_SUITE_ID: ${{ vars.TESTRIGOR_SUITE_ID }}
         run: |
           node <<'NODE'
-          const token = process.env.TESTRIGOR_API_KEY;
+          const token = process.env.TESTRIGOR_API_KEY.trim();
           const suite = process.env.TESTRIGOR_SUITE_ID;
           (async () => {
-            for (const [kind, branch] of [['baseline', process.env.TASKS_DEFAULT_BRANCH], ['ci', process.env.TASKS_E2E_BRANCH]]) {
+            for (const [kind, branch] of [['suite', null], ['baseline', process.env.TASKS_DEFAULT_BRANCH], ['ci', process.env.TASKS_E2E_BRANCH]]) {
               const url = new URL(`https://app.testrigor.com/api/v1/apps/${encodeURIComponent(suite)}/status`);
-              url.searchParams.set('branchName', branch);
+              if (branch !== null) url.searchParams.set('branchName', branch);
               const response = await fetch(url, {headers: {'auth-token': token, Accept: 'application/json'}});
               const text = await response.text();
               let detail = response.headers.get('content-type') || '';
-              try { const body = JSON.parse(text); detail += ': ' + String(body.message || body.error || 'no error message'); }
+              try { const body = JSON.parse(text); detail += ': ' + String(body.message || body.error || body.reason || 'no error message') + '; keys=' + Object.keys(body).join(','); }
               catch { if (text.toLowerCase().includes('cloudflare')) detail += ': Cloudflare response'; }
               console.log(JSON.stringify({client: 'node', branch_kind: kind, status_http: response.status, detail: detail.split(token).join('[REDACTED]').slice(0, 240)}));
             }

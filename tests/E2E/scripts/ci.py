@@ -68,7 +68,7 @@ def verify_package(package):
 
 
 def request(url, token):
-    req = urllib.request.Request(url, headers={'auth-token': token, 'Accept': 'application/json'})
+    req = urllib.request.Request(url, headers={'auth-token': token, 'Accept': 'application/json', 'User-Agent': 'node'})
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             return response.status, response.headers.get_content_type(), response.read()
@@ -82,8 +82,10 @@ def run_id(url, suite):
 
 
 def status(suite, branch, token):
-    url = 'https://app.testrigor.com/api/v1/apps/' + suite + '/status?'
-    code, content_type, data = request(url + urllib.parse.urlencode({'branchName': branch}), token)
+    url = 'https://app.testrigor.com/api/v1/apps/' + suite + '/status'
+    if branch is not None:
+        url += '?' + urllib.parse.urlencode({'branchName': branch})
+    code, content_type, data = request(url, token)
     if code == 404:
         return code, None  # A new CI branch may have no previous run.
     if code not in [200, 227, 228, 229, 230]:
@@ -91,7 +93,8 @@ def status(suite, branch, token):
         try:
             body = json.loads(data)
             if isinstance(body, dict):
-                detail += ': ' + str(body.get('message', body.get('error', 'no error message')))
+                detail += ': ' + str(body.get('message', body.get('error', body.get('reason', 'no error message'))))
+                detail += '; keys=' + ','.join(body)
         except (ValueError, UnicodeDecodeError):
             if b'cloudflare' in data.lower():
                 detail += ': Cloudflare response'
@@ -101,17 +104,17 @@ def status(suite, branch, token):
 
 
 def check_access():
-    token = os.environ.get('TESTRIGOR_API_KEY', '')
+    token = os.environ.get('TESTRIGOR_API_KEY', '').strip()
     suite = os.environ.get('TESTRIGOR_SUITE_ID', '')
     branch = os.environ.get('TASKS_E2E_BRANCH', '')
     if not token or not re.fullmatch(r'[A-Za-z0-9_-]+', suite) or not re.fullmatch(r'ci-[0-9]+-[0-9]+', branch):
         raise ValueError('Missing or invalid access-check configuration')
     failed = False
-    for kind, name in [('baseline', os.environ.get('TASKS_DEFAULT_BRANCH', 'main')), ('ci', branch)]:
+    for kind, name in [('suite', None), ('baseline', os.environ.get('TASKS_DEFAULT_BRANCH', 'main')), ('ci', branch)]:
         try:
             code, _ = status(suite, name, token)
             print(json.dumps({'branch_kind': kind, 'status_http': code}))
-            failed |= code not in [200, 229, 230, 404]
+            failed |= code not in ([200] if kind == 'suite' else [200, 229, 230, 404])
         except (ValueError, OSError) as error:
             print(json.dumps({'branch_kind': kind, 'error': str(error).replace(token, '[REDACTED]')}))
             failed = True
@@ -159,7 +162,7 @@ def validate_report(report, suite, run, branch, commit):
 def run(package, output):
     # All integrity/config checks precede any execution request.
     provenance = verify_package(package)
-    token = os.environ.get('TESTRIGOR_API_KEY', '')
+    token = os.environ.get('TESTRIGOR_API_KEY', '').strip()
     suite = os.environ.get('TESTRIGOR_SUITE_ID', '')
     branch = os.environ.get('TASKS_E2E_BRANCH', '')
     if not token or not re.fullmatch(r'[A-Za-z0-9_-]+', suite) or not re.fullmatch(r'ci-[0-9]+-[0-9]+', branch):
@@ -188,7 +191,9 @@ def run(package, output):
                'run_id': None, 'accepted': False, 'submission_started_unix': started}
     write_json(output / 'result.json', summary)
     with (output / 'cli.log').open('w', encoding='utf-8') as log:
-        child = subprocess.Popen(command, cwd=REPO, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        child_env = os.environ.copy()
+        child_env['TESTRIGOR_API_KEY'] = token
+        child = subprocess.Popen(command, cwd=REPO, env=child_env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                  text=True, encoding='utf-8', errors='replace')
         for line in child.stdout:
             safe = line.replace(token, '[REDACTED]')

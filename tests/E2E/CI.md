@@ -54,8 +54,10 @@ dispatching hosted validation have not been performed by the local preparation.
 ## What each dispatch does
 
 The gate executes inline workflow code without checking out the repository.
-When configured and enabled, the access job first checks the status route for
-the default branch and the new CI branch. On failure it records bounded,
+When configured and enabled, the access job first requires a successful
+unfiltered suite-status response, then checks the default and new CI branches.
+A missing new branch is permitted; a missing suite is rejected. Requests use
+the CLI's User-Agent and normalize surrounding credential whitespace. On failure it records bounded,
 redacted error details and compares Node's HTTP client with Python's to help
 distinguish a credential rejection from a client-specific response. No cloud
 test is submitted by these checks. A failed access check skips the build.
@@ -126,7 +128,7 @@ bash -n tests/E2E/scripts/install-tasks.sh
 actionlint -shellcheck= -pyflakes= .github/workflows/e2e-tests.yml
 ```
 
-The twelve offline tests exercise APK/harness tamper detection, stale run/source/case
+The thirteen offline tests exercise APK/harness tamper detection, stale run/source/case
 rejection, missing/failed/skipped results, CLI-exit preservation, credential
 redaction, safe access-error diagnostics and the single-submission/report-recovery path using mocks. The gate's
 inline script was also executed locally with missing configuration, non-default
