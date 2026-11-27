@@ -1,0 +1,28 @@
+customSteps: |
+  offline-create-unique-task
+  save string with parameters "${taskTitle}" as "firstTaskTitle"
+  offline-create-unique-task
+  save string with parameters "${taskTitle}" as "secondTaskTitle"
+  click "Search"
+  type stored value "firstTaskTitle"
+  check that page contains stored value from "firstTaskTitle"
+  check that page doesn't contain stored value from "secondTaskTitle"
+  click "Clear query"
+  go back
+  // Back may first hide the keyboard while the empty SearchView stays expanded.
+  if page doesn't contain "My Tasks" then
+    go back
+  end
+  check that page contains "My Tasks"
+  check that page contains stored value from "firstTaskTitle"
+  check that page contains stored value from "secondTaskTitle"
+  click stored value "firstTaskTitle"
+  offline-delete-current-task
+  check that page doesn't contain stored value from "firstTaskTitle"
+  click stored value "secondTaskTitle"
+  offline-delete-current-task
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "firstTaskTitle"
+  check that page doesn't contain stored value from "secondTaskTitle"
+labels: [native, offline]

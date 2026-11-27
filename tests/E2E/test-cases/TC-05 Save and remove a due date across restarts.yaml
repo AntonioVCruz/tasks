@@ -1,0 +1,27 @@
+customSteps: |
+  offline-create-unique-task
+  click stored value "taskTitle"
+  click "No due date"
+  click "Today"
+  click "OK" if exists
+  check that page contains "Today"
+  click "Save"
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  check that page contains "Today"
+  // Clear the same saved date and prove the cleared state persists too.
+  click "Today"
+  click "No date"
+  click "OK" if exists
+  check that page contains "No due date"
+  click "Save"
+  restart app
+  check that page contains stored value from "taskTitle"
+  click stored value "taskTitle"
+  check that page contains "No due date"
+  offline-delete-current-task
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "taskTitle"
+labels: [native, offline]
