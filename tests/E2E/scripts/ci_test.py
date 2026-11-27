@@ -97,6 +97,14 @@ class EvidenceTests(unittest.TestCase):
         self.assertIsNone(ci.run_id('https://app.testrigor.com/suites/Other/runs/Run123', 'Suite123'))
         self.assertEqual(ci.run_id('https://app.testrigor.com/suites/Suite123/runs/Run123', 'Suite123'), 'Run123')
 
+    def test_access_error_explains_rejection_without_printing_token(self):
+        data = json.dumps({'message': 'Rejected fake-ci-token'}).encode()
+        with patch.object(ci, 'request', return_value=(403, 'application/json', data)):
+            with self.assertRaisesRegex(ValueError, 'HTTP 403') as error:
+                ci.status('Suite123', 'main', 'fake-ci-token')
+        self.assertNotIn('fake-ci-token', str(error.exception))
+        self.assertIn('[REDACTED]', str(error.exception))
+
 
 class RunnerTests(unittest.TestCase):
     def simulate(self, cli_exit=0, terminal_code=200, report_run='Run123', preflight_code=200):

@@ -14,7 +14,7 @@ in the development loop, but that does not verify the GitHub-hosted build.
 | Result | Advisory: do not add this job to required branch checks. A failed execution still fails the job; there is no `continue-on-error` or execution retry. |
 | Application | Build `:app:assembleGoogleplayDebug` from the checked-out source through the existing installer, using JDK 25 and Android platform `android-37.0`. Production signing and map/provider keys are unnecessary for the covered offline flows. |
 | Deployment | Upload the built APK to testRigor for installation on its native Android device. There is no browser server, VM deployment, tunnel or local emulator. The first case steps exercise actual cloud launch/onboarding. |
-| Trust boundary | A job with no testRigor credential builds the APK. A separate job downloads that artifact, checks source/harness hashes and APK digest, then receives the CI token only on the run step. Checkouts do not retain the GitHub token. |
+| Trust boundary | An access-check job verifies the suite token before building. A job with no testRigor credential builds the APK. A separate E2E job downloads that artifact, checks source/harness hashes and APK digest, then receives the CI token only on the run step. Checkouts do not retain the GitHub token. |
 | Versions | Exact CLI `3.0.0`, the version exercised in development. Node 22 matches the verified major version. Third-party actions use full commit SHAs. JDK 25 and the checked-in Gradle wrapper follow this repository's CI conventions. |
 | Duration | Gate 5 minutes, build 35 minutes, E2E 75 minutes; no job matrix. The accepted development cloud run took about 30 minutes. Hosted build/runtime limits are proposals until exercised. |
 | Serialization | Stable `testrigor-<suite-id>` concurrency group, `cancel-in-progress: false`. Other workflows using this suite must use the same group. GitHub's default single pending slot may replace an unstarted pending dispatch; it does not cancel the active run. Local runs and other repositories are outside this lock. |
@@ -54,7 +54,13 @@ dispatching hosted validation have not been performed by the local preparation.
 ## What each dispatch does
 
 The gate executes inline workflow code without checking out the repository.
-When configured and enabled, the build job runs the existing installer, then
+When configured and enabled, the access job first checks the status route for
+the default branch and the new CI branch. On failure it records bounded,
+redacted error details and compares Node's HTTP client with Python's to help
+distinguish a credential rejection from a client-specific response. No cloud
+test is submitted by these checks. A failed access check skips the build.
+
+After access succeeds, the build job runs the existing installer, then
 `ci.py prepare` creates a package containing `app.apk` and a provenance manifest.
 That manifest records the source and harness revisions, APK digest and hashes
 of the local case/rule/runner files. No release APK is substituted for a failed
@@ -120,9 +126,9 @@ bash -n tests/E2E/scripts/install-tasks.sh
 actionlint -shellcheck= -pyflakes= .github/workflows/e2e-tests.yml
 ```
 
-The offline tests exercise APK/harness tamper detection, stale run/source/case
+The twelve offline tests exercise APK/harness tamper detection, stale run/source/case
 rejection, missing/failed/skipped results, CLI-exit preservation, credential
-redaction and the single-submission/report-recovery path using mocks. The gate's
+redaction, safe access-error diagnostics and the single-submission/report-recovery path using mocks. The gate's
 inline script was also executed locally with missing configuration, non-default
 refs, PR events and complete fake configuration. These checks do not execute the
 GitHub service, build an APK or run cloud tests. ShellCheck/Pyflakes were not

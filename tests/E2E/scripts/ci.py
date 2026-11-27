@@ -83,13 +83,39 @@ def run_id(url, suite):
 
 def status(suite, branch, token):
     url = 'https://app.testrigor.com/api/v1/apps/' + suite + '/status?'
-    code, _, data = request(url + urllib.parse.urlencode({'branchName': branch}), token)
+    code, content_type, data = request(url + urllib.parse.urlencode({'branchName': branch}), token)
     if code == 404:
         return code, None  # A new CI branch may have no previous run.
     if code not in [200, 227, 228, 229, 230]:
-        raise ValueError(f'Suite status request failed: HTTP {code}')
+        detail = content_type
+        try:
+            body = json.loads(data)
+            if isinstance(body, dict):
+                detail += ': ' + str(body.get('message', body.get('error', 'no error message')))
+        except (ValueError, UnicodeDecodeError):
+            if b'cloudflare' in data.lower():
+                detail += ': Cloudflare response'
+        raise ValueError(f'Suite status request failed: HTTP {code}; {detail.replace(token, "[REDACTED]")[:240]}')
     body = json.loads(data)
     return code, run_id(body.get('detailsUrl'), suite)
+
+
+def check_access():
+    token = os.environ.get('TESTRIGOR_API_KEY', '')
+    suite = os.environ.get('TESTRIGOR_SUITE_ID', '')
+    branch = os.environ.get('TASKS_E2E_BRANCH', '')
+    if not token or not re.fullmatch(r'[A-Za-z0-9_-]+', suite) or not re.fullmatch(r'ci-[0-9]+-[0-9]+', branch):
+        raise ValueError('Missing or invalid access-check configuration')
+    failed = False
+    for kind, name in [('baseline', os.environ.get('TASKS_DEFAULT_BRANCH', 'main')), ('ci', branch)]:
+        try:
+            code, _ = status(suite, name, token)
+            print(json.dumps({'branch_kind': kind, 'status_http': code}))
+            failed |= code not in [200, 229, 230, 404]
+        except (ValueError, OSError) as error:
+            print(json.dumps({'branch_kind': kind, 'error': str(error).replace(token, '[REDACTED]')}))
+            failed = True
+    return 1 if failed else 0
 
 
 def retrieve_report(suite, run, token, target):
@@ -210,11 +236,14 @@ def main():
     cloud = commands.add_parser('run')
     cloud.add_argument('--package', type=Path, required=True)
     cloud.add_argument('--output', type=Path, required=True)
+    commands.add_parser('check-access')
     args = parser.parse_args()
     try:
         if args.command == 'prepare':
             prepare(args.apk, args.output)
             return 0
+        if args.command == 'check-access':
+            return check_access()
         return run(args.package, args.output)
     except (ValueError, OSError, KeyError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
         token = os.environ.get('TESTRIGOR_API_KEY', '')
