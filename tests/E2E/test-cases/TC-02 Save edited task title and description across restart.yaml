@@ -1,0 +1,32 @@
+customSteps: |
+  offline-create-described-task
+  click stored value "taskTitle"
+  scroll down until page contains stored value from "taskNotes"
+  check that page contains stored value from "taskNotes"
+
+  // Replace existing values; later checks must reject appended or stale values.
+  scroll up until page contains stored value from "taskTitle"
+  generate from regex "EditedTask_[a-z]{12}", then enter into "Task name" and save as "updatedTaskTitle"
+  scroll down until page contains stored value from "taskNotes"
+  generate from regex "EditedNotes_[a-z]{12}", then enter into "Description" and save as "updatedNotes"
+  click "Save"
+  check that page contains "My Tasks"
+  check that page contains stored value from "updatedTaskTitle"
+  check that page doesn't contain stored value from "taskTitle"
+
+  restart app
+  check that page contains "My Tasks"
+  check that page contains stored value from "updatedTaskTitle"
+  check that page doesn't contain stored value from "taskTitle"
+  click stored value "updatedTaskTitle"
+  check that page contains stored value from "updatedTaskTitle"
+  scroll down until page contains stored value from "updatedNotes"
+  check that page contains stored value from "updatedNotes"
+  check that page doesn't contain stored value from "taskNotes"
+
+  offline-delete-current-task
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "updatedTaskTitle"
+  check that page doesn't contain stored value from "taskTitle"
+labels: [native, offline]

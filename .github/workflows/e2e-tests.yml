@@ -1,0 +1,167 @@
+name: Native Android E2E (opt-in)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Every workflow in this repository using this suite must use this same group.
+# Local runs and runs in other repositories still require operator coordination.
+concurrency:
+  group: testrigor-${{ vars.TESTRIGOR_SUITE_ID || github.repository }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      enabled: ${{ steps.config.outputs.enabled }}
+    steps:
+      # No checkout: this credential check executes only the workflow's code.
+      - name: Check opt-in and configuration
+        id: config
+        env:
+          E2E_ENABLED: ${{ vars.TESTRIGOR_E2E_ENABLED }}
+          SUITE_ID: ${{ vars.TESTRIGOR_SUITE_ID }}
+          CI_TOKEN: ${{ secrets.TESTRIGOR_CI_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          echo 'enabled=false' >> "$GITHUB_OUTPUT"
+          if [[ "$EVENT_NAME" != workflow_dispatch || "$REF" != "refs/heads/$DEFAULT_BRANCH" ]]; then
+            echo 'E2E skipped: dispatch from the default branch only.'
+          elif [[ "$E2E_ENABLED" != true ]]; then
+            echo 'E2E skipped: set TESTRIGOR_E2E_ENABLED=true to opt in.'
+          elif [[ -z "$SUITE_ID" || -z "$CI_TOKEN" ]]; then
+            echo 'E2E skipped: suite ID or CI token is missing.'
+          elif [[ ! "$SUITE_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+            echo '::error::TESTRIGOR_SUITE_ID has an invalid format.'
+            exit 1
+          else
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          fi
+
+  access:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TASKS_E2E_BRANCH: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      TASKS_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Check suite read access before building
+        env:
+          TESTRIGOR_API_KEY: ${{ secrets.TESTRIGOR_CI_TOKEN }}
+          TESTRIGOR_SUITE_ID: ${{ vars.TESTRIGOR_SUITE_ID }}
+        run: python3 tests/E2E/scripts/ci.py check-access
+
+  build:
+    needs: [gate, access]
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      TASKS_SOURCE_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          cmdline-tools-version: '15859902'
+          packages: 'platform-tools platforms;android-37.0'
+
+      # This job receives no testRigor token or production signing/service keys.
+      - name: Build Google Play debug APK from checked-out source
+        env:
+          TASKS_E2E_STATE_DIR: ${{ runner.temp }}/tasks-e2e-build
+        run: |
+          set -euo pipefail
+          mkdir -p "$TASKS_E2E_STATE_DIR"
+          bash tests/E2E/scripts/build-apk.sh build 2>&1 | tee "$TASKS_E2E_STATE_DIR/build.log"
+          python3 tests/E2E/scripts/ci.py prepare \
+            --apk app/build/outputs/apk/googleplay/debug/app-googleplay-debug.apk \
+            --output "$TASKS_E2E_STATE_DIR/package"
+
+      - name: Upload source APK and provenance
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: android-e2e-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/tasks-e2e-build/package/
+          retention-days: 3
+          if-no-files-found: error
+
+      - name: Upload build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: android-e2e-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/tasks-e2e-build/build.log
+          retention-days: 3
+
+  e2e:
+    needs: [gate, build]
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      TASKS_SOURCE_SHA: ${{ github.sha }}
+      TASKS_E2E_BRANCH: ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Install verified testRigor CLI
+        run: npm install --global @testrigor/testrigor-cli@3.0.0
+
+      - name: Download this run's source APK
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: android-e2e-input-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/tasks-e2e-input
+
+      - name: Run native offline journeys
+        env:
+          TESTRIGOR_API_KEY: ${{ secrets.TESTRIGOR_CI_TOKEN }}
+          TESTRIGOR_SUITE_ID: ${{ vars.TESTRIGOR_SUITE_ID }}
+        run: |
+          python3 tests/E2E/scripts/ci.py run \
+            --package "$RUNNER_TEMP/tasks-e2e-input" \
+            --output "$RUNNER_TEMP/tasks-e2e-results"
+
+      # Retain failures without changing the test step's exit status.
+      - name: Upload E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: android-e2e-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/tasks-e2e-results/
+          retention-days: 7
+          if-no-files-found: warn

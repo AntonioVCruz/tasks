@@ -1,0 +1,46 @@
+customSteps: |
+  offline-create-described-task
+  click stored value "taskTitle"
+  scroll down until page contains stored value from "taskNotes"
+  check that page contains stored value from "taskNotes"
+
+  scroll up until page contains stored value from "taskTitle"
+  generate from regex "DiscardedTask_[a-z]{12}", then enter into "Task name" and save as "discardedTaskTitle"
+  scroll down until page contains stored value from "taskNotes"
+  generate from regex "DiscardedNotes_[a-z]{12}", then enter into "Description" and save as "discardedNotes"
+  // Prove edits reached the form before exercising the discard guard.
+  check that page contains stored value from "discardedNotes"
+  scroll up until page contains stored value from "discardedTaskTitle"
+  check that page contains stored value from "discardedTaskTitle"
+  // The toolbar action exists only when Back is configured to save tasks.
+  // Otherwise Back requests discard; a first Back may only close the keyboard.
+  if page contains "Discard changes" then
+    click "Discard changes"
+  else
+    go back
+    if page doesn't contain "Are you sure you want to discard your changes?" then
+      go back
+    end
+  end
+  check that page contains "Are you sure you want to discard your changes?"
+  click "Discard"
+  check that page contains "My Tasks"
+  check that page contains stored value from "taskTitle"
+  check that page doesn't contain stored value from "discardedTaskTitle"
+
+  restart app
+  check that page contains "My Tasks"
+  check that page contains stored value from "taskTitle"
+  check that page doesn't contain stored value from "discardedTaskTitle"
+  click stored value "taskTitle"
+  check that page contains stored value from "taskTitle"
+  scroll down until page contains stored value from "taskNotes"
+  check that page contains stored value from "taskNotes"
+  check that page doesn't contain stored value from "discardedNotes"
+
+  offline-delete-current-task
+  restart app
+  check that page contains "My Tasks"
+  check that page doesn't contain stored value from "taskTitle"
+  check that page doesn't contain stored value from "discardedTaskTitle"
+labels: [native, offline]
